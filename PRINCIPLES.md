@@ -34,7 +34,7 @@ At the very top of the skill, before doing anything else, verify all of the foll
 
 - The current branch is **not** the default branch. Assume the default branch is `main`. (On `main` -> do not run.)
 
-- The working tree is clean. (Dirty repo -> do not run.)
+- The working tree is clean — **unless** `SCSH=1` (the reviewer is running under scsh). On the host (no `SCSH`), a dirty repo is a non-starter: do not run. Under scsh the per-run clone is expectedly dirty (sandbox scratch, unrelated to the code under review), so a dirty tree is fine. Either way the review covers committed history (`origin/main..HEAD`) only.
 
 ## 4. What to review — commit by commit
 
