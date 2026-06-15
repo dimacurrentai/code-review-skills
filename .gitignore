@@ -1,0 +1,4 @@
+# Reviewer output envelope (see REVIEWER-INVARIANTS.md §5). Ignored so that one
+# skill writing its result does not dirty the working tree and trip the
+# clean-tree precondition (§3) for the next skill.
+tmp/
