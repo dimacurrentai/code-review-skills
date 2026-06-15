@@ -1,0 +1,45 @@
+# .scsh.yml — code-review-skills authoring repo (see PRINCIPLES.md §8).
+# Skills-only manifest: scsh supplies the base image (alpine + opencode + git),
+# so there are no version/project/image headers. Authoring-only — it does not
+# ship to target repos. Skill directories live under .skills/ (.skills/<name>/);
+# manifest keys are skill names, which scsh resolves under .skills/.
+#
+# `scsh run`                        runs self-check-reviewers, the family auditor (default).
+# `scsh run --profile code-review`  runs the five reviewers.
+
+skills:
+  conventions-reviewer:
+    harness: opencode
+    model: openai/gpt-5.5
+    timeout: 600
+    profile: code-review
+    result: tmp/code-review-conventions-reviewer.json
+  justification-reviewer:
+    harness: opencode
+    model: openai/gpt-5.5
+    timeout: 600
+    profile: code-review
+    result: tmp/code-review-justification-reviewer.json
+  reviewability-reviewer:
+    harness: opencode
+    model: openai/gpt-5.5
+    timeout: 600
+    profile: code-review
+    result: tmp/code-review-reviewability-reviewer.json
+  sanity-reviewer:
+    harness: opencode
+    model: openai/gpt-5.5
+    timeout: 600
+    profile: code-review
+    result: tmp/code-review-sanity-reviewer.json
+  testing-reviewer:
+    harness: opencode
+    model: openai/gpt-5.5
+    timeout: 600
+    profile: code-review
+    result: tmp/code-review-testing-reviewer.json
+  self-check-reviewers:
+    harness: opencode
+    model: openai/gpt-5.5
+    timeout: 600
+    result: tmp/self-check-reviewers.json
