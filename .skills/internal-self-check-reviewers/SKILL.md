@@ -1,6 +1,6 @@
 ---
 name: internal-self-check-reviewers
-description: Authoring-only meta-check for the code-review-skills repo. Reads PRINCIPLES.md, the .scsh.yml manifest, and every reviewer's SKILL.md, then verifies the manifest is complete and each reviewer is self-contained and faithfully restates the principles in PRINCIPLES.md. It is not a code reviewer and is never copied to a target repo (its internal- name and its autoinstall: false both exclude it); run it with `scsh run --profile internal-self-check`.
+description: "Authoring-only meta-check for the code-review-skills repo. Reads PRINCIPLES.md, the .scsh.yml manifest, and every reviewer's SKILL.md, then verifies the manifest is complete and each reviewer is self-contained and faithfully restates the principles in PRINCIPLES.md. It is not a code reviewer and is never copied to a target repo (its internal- name and its autoinstall: false both exclude it); run it with `scsh run --profile internal-self-check`."
 ---
 
 # Self-Check: Reviewers
@@ -18,7 +18,7 @@ You are authoring-only: you live in this repo, are never copied to a target repo
 
 ## What you check
 
-**Manifest (section 8).** `.scsh.yml` is skills-only — no `version`, `project`, or `image` headers. Its `skills:` section has exactly one entry per `.skills/*-reviewer/` directory (each keyed by a `name` that matches its directory), plus the `internal-self-check-reviewers` entry. No reviewer directory is missing; no listed name lacks a directory. Each reviewer entry declares `harness`, `model`, `timeout`, `result: tmp/code-review-<skill-name>.json`, and `profile: code-review`; `internal-self-check-reviewers` carries `profile: internal-self-check`, `autoinstall: false`, and `result: tmp/internal-self-check-reviewers.json`.
+**Manifest (section 8).** `.scsh.yml` is skills-only — no `version`, `project`, or `image` headers. Its `skills:` section lists exactly five reviewer directories under `.skills/*-reviewer/` (each with a `SKILL.md` whose `name` matches its directory). Each reviewer entry declares `profile: code-review`, `timeout`, `result: tmp/code-review-<reviewer>-{name}.json`, and an **`invocations:`** block with three routes — opencode GPT (`openai/gpt-5.5`), claude Opus (`claude-opus-4-8`), and opencode GLM-5.2 (`nebius-glm/zai-org/GLM-5.2`) — each with `harness` and `model`. `scsh run --profile code-review` expands those to fifteen invocations named `{reviewer}-{route}`. The manifest also includes `internal-self-check-reviewers` with direct run fields, `profile: internal-self-check`, and `autoinstall: false`. No reviewer directory is missing; no reviewer lacks the three invocation routes.
 
 **Each reviewer (sections 1-7).** For every listed `*-reviewer`:
 
@@ -26,7 +26,7 @@ You are authoring-only: you live in this repo, are never copied to a target repo
 
 - **Section 2** — it reviews and reports only; it never modifies, fixes, stages, or commits, and never adds itself as an author or `Co-authored-by`.
 
-- **Self-contained** — it restates, in its own words, every rule it depends on: the preconditions (section 3); the `origin/main..HEAD` commit-by-commit range and the Elon-Presley commit exclusion (section 4); the output contract and schema, with its **own** `tmp/code-review-<name>.json` filename (section 5); the special author and note-handling (section 6); and the shared baseline (section 7) — correctness-and-logic, overlap-is-fine, repository-guidelines, tone, and human-in-the-loop. Anchoring (`file`/`line`/`commit`) is described.
+- **Self-contained** — it restates, in its own words, every rule it depends on: the preconditions (section 3), including the under-scsh no-fetch/no-pull/no-clone rule; the `origin/main..HEAD` commit-by-commit range and the Elon-Presley commit exclusion (section 4); the output contract and schema, writing to `$SCSH_RESULT` under scsh or its own `tmp/code-review-<name>.json` when invoked alone (section 5); the special author and note-handling (section 6); and the shared baseline (section 7) — correctness-and-logic, overlap-is-fine, repository-guidelines, tone, and human-in-the-loop. Anchoring (`file`/`line`/`commit`) is described.
 
 - **No external reference** — it never mentions or depends on `PRINCIPLES.md`; it would still work copied alone into a target repo.
 

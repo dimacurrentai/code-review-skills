@@ -16,6 +16,8 @@ This file exists for two purposes: when the author edits a skill, they check it 
 
 - Each reviewer is an AI-Assisted Coding Agent Skill defined by a `SKILL.md` with valid YAML frontmatter containing at least `name` and `description`.
 
+- Every YAML block in a skill — frontmatter and any fenced `yaml` examples — MUST parse as valid YAML. Prefer double-quoted strings for long scalar values (especially `description`); unquoted text that contains a colon followed by a space (`: `) will break strict parsers such as GitHub's.
+
 - `name` MUST exactly match the skill's directory name.
 
 - Every reviewer is a **code reviewer**. Its `description` MUST state which kind of code reviewer it is (its mandate/persona), so it triggers for the right review concern.
@@ -36,9 +38,13 @@ At the very top of the skill, before doing anything else, verify all of the foll
 
 - The working tree is clean — **unless** `SCSH=1` (the reviewer is running under scsh). On the host (no `SCSH`), a dirty repo is a non-starter: do not run. Under scsh the per-run clone is expectedly dirty (sandbox scratch, unrelated to the code under review), so a dirty tree is fine. Either way the review covers committed history (`origin/main..HEAD`) only.
 
+- When **`SCSH=1`, never reach out to git remotes.** scsh **pushed** a full local clone into the container from the host before it started — code flows **in** only. The skill MUST NOT run `git fetch`, `git pull`, `git push`, or `git clone` (or any other command that contacts a remote). Use only refs already present locally (`origin/main`, `HEAD`, local branches). If `origin/main` is missing or `origin/main..HEAD` is empty, that is a precondition failure — exit without trying to fix it by fetching. Reviewers are review-only (no commits). After the container exits, scsh **pulls** the JSON result **out** on the host; it never pulls commits from reviewer runs.
+
 ## 4. What to review — commit by commit
 
 - Compare the current branch against `origin/main`. The review range is `origin/main..HEAD`.
+
+- Use **only local refs** already in the clone — never `git fetch` or `git pull` to refresh `origin/main` first (under scsh that is forbidden outright; on the host it would review the wrong snapshot).
 
 - Review **commit by commit**, not the squashed/overall diff. The point is attribution: every issue must name the commit a human should amend.
 
@@ -48,13 +54,7 @@ At the very top of the skill, before doing anything else, verify all of the foll
 
 ## 5. Output contract
 
-- Write results to the repository root in a file named:
-
-  ```
-  tmp/code-review-<skill-name>.json
-  ```
-
-  where `<skill-name>` is the skill's `name` (== its directory).
+- Write results under the repository's gitignored `tmp/`. When running under scsh, write to the path in `$SCSH_RESULT` (each model-route invocation declares its own `result:` in `.scsh.yml`). When invoked on its own without scsh, write to `tmp/code-review-<skill-name>.json`, where `<skill-name>` is the skill's `name` (== its directory).
 
 - The file MUST be a single, strongly typed JSON object matching this schema:
 
@@ -121,9 +121,9 @@ These apply to every reviewer, on top of its own mandate.
 
 These apply only in the **authoring repository** (`code-review-skills`). They do **not** ship with any reviewer skill — a target repo gets the reviewer directories alone, run by its own harness; scsh and this manifest stay here.
 
-- **Complete manifest.** The skill directories live under `.skills/` — one directory per skill, at `.skills/<name>/SKILL.md`. The repo root keeps a `.scsh.yml` whose `skills:` section lists **every** reviewer skill — one entry per `.skills/*-reviewer/` directory, keyed by the skill's `name` (matching the directory) — plus the `internal-self-check-reviewers` entry itself. The manifest must be complete: no reviewer omitted, no extra name without a matching directory. Each reviewer entry declares `harness`, `model`, `timeout`, `result: tmp/code-review-<skill-name>.json` matching section 5, and `profile: code-review` — the reviewers run only under that profile, while `internal-self-check-reviewers` carries `profile: internal-self-check` and `autoinstall: false`, and runs only under `scsh run --profile internal-self-check`. Every skill belongs to a profile, so a bare `scsh run` (no profile selected) runs nothing — scsh just lists the available profiles. The file is **skills-only**: scsh supplies the base image (alpine + opencode + git), so do not add `version`, `project`, or `image` headers.
+- **Complete manifest.** The skill directories live under `.skills/` — one directory per reviewer skill, at `.skills/<name>/SKILL.md` (five reviewers: conventions, justification, reviewability, sanity, testing). The repo root keeps a `.scsh.yml` whose `skills:` section lists **one entry per reviewer** (key == folder name), each with `profile: code-review`, `timeout`, a `result:` template containing `{name}` (for example `tmp/code-review-conventions-reviewer-{name}.json`), and an **`invocations:`** block naming three routes — GPT via opencode `openai/gpt-5.5`, Opus via claude `claude-opus-4-8`, GLM-5.2 via opencode `nebius-glm/zai-org/GLM-5.2` — each with its own `harness` and `model`. `scsh run --profile code-review` expands those five skills to fifteen invocations named `{reviewer}-{route}`; `scsh installskills` copies the matrix verbatim into consumer repos. The manifest also lists `internal-self-check-reviewers` itself. The five reviewer directories must all exist; every reviewer must declare the same three invocation routes. `internal-self-check-reviewers` carries `profile: internal-self-check`, `harness`, `model`, `timeout`, `result:`, and `autoinstall: false`, and runs only under `scsh run --profile internal-self-check`. Every skill belongs to a profile, so a bare `scsh run` (no profile selected) runs nothing — scsh just lists the available profiles. The file is **skills-only**: scsh supplies the base image (alpine + opencode + git), so do not add `version`, `project`, or `image` headers. **scsh repo sync:** host pushes a clone into each container (bind-mount); skills must not fetch inside. After exit, scsh pulls result files out on the host; commits out only when `commits: true` (reviewers never commit).
 
-- **Why list them all.** The manifest is the authoritative roll call of the family. **`internal-self-check-reviewers`** reads `.scsh.yml` to know which reviewers to audit; if a new reviewer is added but not listed, or an old one is removed but still listed, the check fails. Listing every reviewer also documents how the family runs together under `scsh run` in this repo.
+- **Why list them all.** The manifest is the authoritative roll call of the family. **`internal-self-check-reviewers`** reads `.scsh.yml` to know which reviewers and invocation routes to audit; if a route is added but not listed, or an old one is removed but still listed, the check fails. Listing every reviewer and its `invocations:` routes also documents how the fleet runs and ships.
 
 - **`internal-self-check-reviewers`.** An authoring-only skill (directory `.skills/internal-self-check-reviewers/`, **never copied** to target repos) — and the one skill that is **not** a code reviewer, so sections 1-7 do not bind it; it enforces them on the others. Both its `internal-` name and an explicit `autoinstall: false` keep `scsh installskills` from ever shipping it. It carries `profile: internal-self-check`, so it runs under `scsh run --profile internal-self-check`; the reviewers themselves run only under `scsh run --profile code-review`, and a bare `scsh run` (no profile selected) is a no-op. Run it after committing. It reads `PRINCIPLES.md`, the manifest, and each listed reviewer's `SKILL.md`, and confirms every reviewer is self-contained and restates sections 1-7 correctly. It writes `tmp/internal-self-check-reviewers.json`. Unlike the reviewers, it **may** reference `PRINCIPLES.md`, because it never leaves this repo.
 
