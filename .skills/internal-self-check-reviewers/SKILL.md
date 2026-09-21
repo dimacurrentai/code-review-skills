@@ -28,6 +28,8 @@ You are authoring-only: you live in this repo, are never copied to a target repo
 
 - **Self-contained** — it restates, in its own words, every rule it depends on: the preconditions (section 3), including the under-scsh no-fetch/no-pull/no-clone rule; the `origin/main..HEAD` commit-by-commit range and the Elon-Presley commit exclusion (section 4); the output contract and schema, writing to `$SCSH_RESULT` under scsh or its own `tmp/code-review-<name>.json` when invoked alone, plus the lossless workflow-output adapter rule (section 5); the special author, note-handling, and no-verification-in-PR-description rule (section 6); and the shared baseline (section 7) — correctness-and-logic, finding discipline (argued severity, pre-existing-out-of-scope, one-root-cause-one-finding, cite-your-evidence), overlap-is-fine, repository-guidelines, tone, and human-in-the-loop. Anchoring (`file`/`line`/`commit`) is described.
 
+- **Script-owned JSON** — its executable `scripts/write_review.py` exists, is identical across all five reviewer skills, and the skill requires using it with scalar flags instead of hand-authoring JSON or generating serialization code during the review.
+
 - **No external reference** — it never mentions or depends on `PRINCIPLES.md`; it would still work copied alone into a target repo.
 
 - **No contradiction** — nothing in the skill conflicts with the principles or with another reviewer's stated mandate. (Minor overlap between reviewers is expected and is *not* a problem.)

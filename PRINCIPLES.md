@@ -85,6 +85,8 @@ At the very top of the skill, before doing anything else, verify all of the foll
 
 - When there are no issues, emit `issues: []` and grade accordingly (typically `excellent`).
 
+- A reviewer MUST use the deterministic `scripts/write_review.py` shipped inside its own skill directory to produce this document. The agent supplies scalar command-line values; the script validates the grade, line numbers, and issue fields, computes `issues_found`, serializes with Python's standard JSON library, and atomically writes the selected result path. Never ask the agent to hand-author JSON, interpolate findings into shell JSON, generate a serializer or validator during the review, or repair malformed output. The script also owns adaptation to an appended workflow contract through its documented `--workflow` mode.
+
 - A workflow engine may append its own machine-output contract after the skill body. That appended contract replaces only the JSON shape above: every substantive finding, its severity, its commit/file/line anchor, its description, and its suggestion must survive in the workflow's declared fields; when the workflow requests findings as plain strings, each string leads with its severity in brackets. All review rules remain unchanged.
 
 ## 6. The special author, the notes, and the PR definition
