@@ -53,6 +53,6 @@ It is the **canonical specification, kept here for the author's sanity** — not
 
 - All Markdown files, including this one, use **one long line per paragraph** — no hard-wrapping within a paragraph. (See `PRINCIPLES.md`, line 3.)
 
-- Every reviewer ships the byte-identical `scripts/write_review.py`, the only thing allowed to serialize a review. After touching it or any skill's documented invocation, run `python3 test_write_review.py`: it executes each skill's documented command verbatim through a real shell and drives hostile values (backticks, `$(…)`, apostrophes, newlines) through the writer.
+- Every reviewer ships the byte-identical `scripts/write_review.py`, the only thing allowed to serialize a review. After touching it or any skill's documented invocation, run `python3 test_write_review.py`: it installs each skill outside the repository, fills in the documented command's one `SKILL_DIR` placeholder, executes it through a real shell from the repository root, and drives hostile values (backticks, `$(…)`, apostrophes, newlines) through the writer.
 
 - `tmp/` holds reviewer and self-check output (`tmp/code-review-<skill-name>.json`, `tmp/internal-self-check-reviewers.json`); `scsh installskills` gitignores `tmp/` in the consumer so a skill writing its result there never dirties the working tree.

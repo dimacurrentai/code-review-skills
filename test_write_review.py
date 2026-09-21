@@ -12,6 +12,7 @@ import unittest
 
 
 ROOT = Path(__file__).parent
+PLACEHOLDER = "<absolute directory of this SKILL.md>"
 SKILLS = sorted((ROOT / ".skills").glob("*-reviewer"))
 
 
@@ -40,22 +41,26 @@ class WriteReviewTest(unittest.TestCase):
         self.assertEqual(len(blocks), 1, skill.name)
         return blocks[0]
 
-    def install(self, skill, repository):
-        """Copy the skill directory alone into a consumer repository, as deployment does."""
-        shutil.copytree(skill, Path(repository) / ".skills" / skill.name)
+    def install(self, skill, home):
+        """Copy the skill directory alone to somewhere outside the repository, as a runner may."""
+        installed = Path(home).resolve() / "skills" / skill.name
+        shutil.copytree(skill, installed)
+        return installed
 
     def environment(self, **overrides):
         environment = {key: value for key, value in os.environ.items() if key != "SCSH_RESULT"}
         environment.update(overrides)
         return environment
 
-    def test_every_documented_command_runs_verbatim_from_the_repository_root(self):
+    def test_every_documented_command_runs_from_the_repository_root_with_the_skill_installed_elsewhere(self):
         for skill in SKILLS:
             command = self.documented_command(skill)
             self.assertNotIn('="', command, f"{skill.name}: values are single-quoted, never double-quoted")
+            self.assertEqual(command.count(f"SKILL_DIR='{PLACEHOLDER}'\n"), 1, f"{skill.name}: no guessed install path")
             for result in [None, "tmp/declared/result.json"]:
-                with self.subTest(skill=skill.name, result=result), tempfile.TemporaryDirectory() as repository:
-                    self.install(skill, repository)
+                with self.subTest(skill=skill.name, result=result), tempfile.TemporaryDirectory() as repository, \
+                        tempfile.TemporaryDirectory() as home:
+                    command = self.documented_command(skill).replace(PLACEHOLDER, str(self.install(skill, home)))
                     overrides = {"SCSH_RESULT": result} if result else {}
                     subprocess.run(command, check=True, cwd=repository, env=self.environment(**overrides), shell=True)
                     written = Path(repository) / (result or f"tmp/code-review-{skill.name}.json")
@@ -73,6 +78,7 @@ class WriteReviewTest(unittest.TestCase):
                     self.assertEqual(document["issues"][1]["line"], 9)
                     leftovers = sorted(path.name for path in written.parent.iterdir())
                     self.assertEqual(leftovers, [written.name], "no temporary file survives the atomic write")
+                    self.assertFalse((Path(home).resolve() / "skills" / skill.name / "tmp").exists(), "nothing lands in the skill")
 
     def test_single_quoting_carries_hostile_values_through_a_real_shell(self):
         def quote(value):
@@ -80,10 +86,9 @@ class WriteReviewTest(unittest.TestCase):
 
         description = 'It\'s `touch nope`, $(touch nope), $HOME, "quoted", a backslash \\, !bang,\nand a second line 雪'
         suggestion = "Don't; use `json.dump()`."
-        with tempfile.TemporaryDirectory() as repository:
-            self.install(SKILLS[0], repository)
+        with tempfile.TemporaryDirectory() as repository, tempfile.TemporaryDirectory() as home:
             command = (
-                f"SKILL_DIR='.skills/{SKILLS[0].name}'\n"
+                f"SKILL_DIR='{self.install(SKILLS[0], home)}'\n"
                 "python3 \"$SKILL_DIR/scripts/write_review.py\" --grade='poor' --issue --commit='abc123' "
                 f"--severity='blocking' --file='path with spaces.py' --line='0' "
                 f"--description={quote(description)} --suggestion={quote(suggestion)}"
