@@ -55,6 +55,8 @@ When scsh appends a workflow-specific `## Output` contract after this skill, tha
 - **One root cause, one finding** — anchor it at its clearest site and list the other affected locations in the description; never file the same defect once per line it manifests on.
 - **Cite your evidence** — check checkable claims (a symbol does not exist, nothing calls this function) by reading or searching (`grep`, `git log`) and say so in the description; the no-execute rule stands.
 
+Never write or repair the JSON yourself. Resolve this skill's directory (the directory containing this `SKILL.md`) and run its shipped `scripts/write_review.py`. Pass `--grade`, then one `--issue` group per finding with scalar `--commit`, `--file`, `--line`, `--description`, and `--suggestion` flags, and `--severity` flags. Quote each value as one shell argument, for example `--description='The call to "parse" drops the error.'`. The script validates the values, computes `issues_found`, and atomically writes valid JSON to `$SCSH_RESULT` or the standalone fallback. When scsh appends a workflow output contract requesting `grade` and `comments`, add `--workflow`; the same issue flags are converted into that shape. Do not create Python, shell, or JSON serialization code during the review.
+
 ## Repository guidelines — read first
 
 Find and read every governing document the repository provides — `CONTRIBUTING.md`, all agent/model instruction files (`AGENTS.md`, `CLAUDE.md`, including any nested in subdirectories), and any declared conventions, principles, maxims, or style guides — and hold the change to them. A clear violation of a stated repository principle is a finding even when it falls outside your specialty.
