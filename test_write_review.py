@@ -32,6 +32,41 @@ class WriteReviewTest(unittest.TestCase):
         self.assertEqual(len(SKILLS), 5)
         self.assertTrue(all(body == bodies[0] for body in bodies))
 
+    def test_documented_multi_issue_command_preserves_escaped_quotes(self):
+        command = (
+            'python3 scripts/write_review.py --grade="good" '
+            '--issue --commit="abc123" --severity="should-fix" '
+            '--file="src/parser.py" --line="17" '
+            '--description="The parser returns \\"ok\\" before validation." '
+            '--suggestion="Validate before returning the \\"ok\\" result." '
+            '--issue --commit="def456" --severity="nit" '
+            '--file="README.md" --line="9" '
+            '--description="Document the \\"strict\\" mode." '
+            '--suggestion="Add one example."'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = Path(directory) / "result.json"
+            environment = os.environ.copy()
+            environment["SCSH_RESULT"] = str(result)
+            subprocess.run(
+                command,
+                check=True,
+                cwd=SKILLS[0],
+                env=environment,
+                shell=True,
+            )
+            document = json.loads(result.read_text(encoding="utf-8"))
+
+        self.assertEqual(document["result"]["issues_found"], 2)
+        self.assertEqual(
+            document["issues"][0]["description"],
+            'The parser returns "ok" before validation.',
+        )
+        self.assertEqual(
+            document["issues"][1]["description"],
+            'Document the "strict" mode.',
+        )
+
     def test_default_result_serializes_hostile_scalar_values(self):
         description = 'A "quote", a backslash \\, a newline\n雪, `$HOME`, and $(touch nope)'
         text, document = self.run_writer(
