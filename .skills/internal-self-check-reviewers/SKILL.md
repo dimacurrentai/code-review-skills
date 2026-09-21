@@ -24,11 +24,11 @@ You are authoring-only: you live in this repo, are never copied to a target repo
 
 - **Section 1** — valid YAML frontmatter with `name` (matching the directory) and a `description` that states which kind of code reviewer it is.
 
-- **Section 2** — it reviews and reports only; it never modifies, fixes, stages, or commits, never adds itself as an author or `Co-authored-by`, and never builds, runs, lints, tests, executes repository scripts, or invokes the product under review.
+- **Section 2** — it reviews and reports only; it never modifies, fixes, stages, or commits, never adds itself as an author or `Co-authored-by`, and never builds, runs, lints, tests, executes repository scripts, or invokes the product under review — and it names its own shipped `scripts/write_review.py` as the one exception, right beside that rule.
 
 - **Self-contained** — it restates, in its own words, every rule it depends on: the preconditions (section 3), including the under-scsh no-fetch/no-pull/no-clone rule; the `origin/main..HEAD` commit-by-commit range and the Elon-Presley commit exclusion (section 4); the output contract and schema, writing to `$SCSH_RESULT` under scsh or its own `tmp/code-review-<name>.json` when invoked alone, plus the lossless workflow-output adapter rule (section 5); the special author, note-handling, and no-verification-in-PR-description rule (section 6); and the shared baseline (section 7) — correctness-and-logic, finding discipline (argued severity, pre-existing-out-of-scope, one-root-cause-one-finding, cite-your-evidence), overlap-is-fine, repository-guidelines, tone, and human-in-the-loop. Anchoring (`file`/`line`/`commit`) is described.
 
-- **Script-owned JSON** — its executable `scripts/write_review.py` exists, is identical across all five reviewer skills, and the skill requires using it with scalar flags instead of hand-authoring JSON or generating serialization code during the review.
+- **Script-owned JSON** — its executable `scripts/write_review.py` exists, is identical across all five reviewer skills, and the skill requires using it with scalar flags instead of hand-authoring JSON or generating serialization code during the review. Its documented example is a fenced `sh` block that calls the writer through `"$SKILL_DIR/scripts/write_review.py"` from the repository root (no `cd` into the skill), single-quotes every value with `'\''` as the only escape, forbids double-quoted values, and shows at least two findings including a backtick span, a `$`, a double quote, and an apostrophe.
 
 - **No external reference** — it never mentions or depends on `PRINCIPLES.md`; it would still work copied alone into a target repo.
 

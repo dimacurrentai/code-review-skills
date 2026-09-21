@@ -4,6 +4,8 @@
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -32,40 +34,66 @@ class WriteReviewTest(unittest.TestCase):
         self.assertEqual(len(SKILLS), 5)
         self.assertTrue(all(body == bodies[0] for body in bodies))
 
-    def test_documented_multi_issue_command_preserves_escaped_quotes(self):
-        command = (
-            'python3 scripts/write_review.py --grade="good" '
-            '--issue --commit="abc123" --severity="should-fix" '
-            '--file="src/parser.py" --line="17" '
-            '--description="The parser returns \\"ok\\" before validation." '
-            '--suggestion="Validate before returning the \\"ok\\" result." '
-            '--issue --commit="def456" --severity="nit" '
-            '--file="README.md" --line="9" '
-            '--description="Document the \\"strict\\" mode." '
-            '--suggestion="Add one example."'
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            result = Path(directory) / "result.json"
-            environment = os.environ.copy()
-            environment["SCSH_RESULT"] = str(result)
-            subprocess.run(
-                command,
-                check=True,
-                cwd=SKILLS[0],
-                env=environment,
-                shell=True,
-            )
-            document = json.loads(result.read_text(encoding="utf-8"))
+    def documented_command(self, skill):
+        """The one fenced sh block each SKILL.md documents for its writer."""
+        blocks = re.findall(r"^```sh\n(.*?)^```$", (skill / "SKILL.md").read_text(encoding="utf-8"), re.M | re.S)
+        self.assertEqual(len(blocks), 1, skill.name)
+        return blocks[0]
 
-        self.assertEqual(document["result"]["issues_found"], 2)
-        self.assertEqual(
-            document["issues"][0]["description"],
-            'The parser returns "ok" before validation.',
-        )
-        self.assertEqual(
-            document["issues"][1]["description"],
-            'Document the "strict" mode.',
-        )
+    def install(self, skill, repository):
+        """Copy the skill directory alone into a consumer repository, as deployment does."""
+        shutil.copytree(skill, Path(repository) / ".skills" / skill.name)
+
+    def environment(self, **overrides):
+        environment = {key: value for key, value in os.environ.items() if key != "SCSH_RESULT"}
+        environment.update(overrides)
+        return environment
+
+    def test_every_documented_command_runs_verbatim_from_the_repository_root(self):
+        for skill in SKILLS:
+            command = self.documented_command(skill)
+            self.assertNotIn('="', command, f"{skill.name}: values are single-quoted, never double-quoted")
+            for result in [None, "tmp/declared/result.json"]:
+                with self.subTest(skill=skill.name, result=result), tempfile.TemporaryDirectory() as repository:
+                    self.install(skill, repository)
+                    overrides = {"SCSH_RESULT": result} if result else {}
+                    subprocess.run(command, check=True, cwd=repository, env=self.environment(**overrides), shell=True)
+                    written = Path(repository) / (result or f"tmp/code-review-{skill.name}.json")
+                    document = json.loads(written.read_text(encoding="utf-8"))
+                    self.assertEqual(document["result"], {"grade": "good", "issues_found": 2})
+                    self.assertEqual(
+                        document["issues"][0]["description"],
+                        '`parse()` returns "ok" before validating $input, so the caller\'s error is lost.',
+                    )
+                    self.assertEqual(
+                        document["issues"][0]["suggestion"],
+                        'Validate first; return "ok" only after `check($input)` passes.',
+                    )
+                    self.assertEqual(document["issues"][1]["description"], 'Document the "strict" mode.')
+                    self.assertEqual(document["issues"][1]["line"], 9)
+                    leftovers = sorted(path.name for path in written.parent.iterdir())
+                    self.assertEqual(leftovers, [written.name], "no temporary file survives the atomic write")
+
+    def test_single_quoting_carries_hostile_values_through_a_real_shell(self):
+        def quote(value):
+            return "'" + value.replace("'", "'\\''") + "'"
+
+        description = 'It\'s `touch nope`, $(touch nope), $HOME, "quoted", a backslash \\, !bang,\nand a second line 雪'
+        suggestion = "Don't; use `json.dump()`."
+        with tempfile.TemporaryDirectory() as repository:
+            self.install(SKILLS[0], repository)
+            command = (
+                f"SKILL_DIR='.skills/{SKILLS[0].name}'\n"
+                "python3 \"$SKILL_DIR/scripts/write_review.py\" --grade='poor' --issue --commit='abc123' "
+                f"--severity='blocking' --file='path with spaces.py' --line='0' "
+                f"--description={quote(description)} --suggestion={quote(suggestion)}"
+            )
+            subprocess.run(command, check=True, cwd=repository, env=self.environment(), shell=True)
+            written = Path(repository) / f"tmp/code-review-{SKILLS[0].name}.json"
+            issue = json.loads(written.read_text(encoding="utf-8"))["issues"][0]
+            self.assertEqual(issue["description"], description)
+            self.assertEqual(issue["suggestion"], suggestion)
+            self.assertFalse((Path(repository) / "nope").exists(), "nothing inside a value was executed")
 
     def test_default_result_serializes_hostile_scalar_values(self):
         description = 'A "quote", a backslash \\, a newline\n雪, `$HOME`, and $(touch nope)'
